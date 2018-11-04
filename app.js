@@ -7,12 +7,23 @@ const mongoose = require('mongoose');
 
 const productRoutes = require('./api/routes/products');
 const ordersRoutes = require('./api/routes/orders');
+const userRoutes = require('./api/routes/user');
 
 // Conectare la mango atlas
-mongoose.connect('mongodb://vlad:' + process.env.MONGO_ATLAS_PW + '@node-rest-shop-shard-00-00-amcix.mongodb.net:27017,node-rest-shop-shard-00-01-amcix.mongodb.net:27017,node-rest-shop-shard-00-02-amcix.mongodb.net:27017/test?ssl=true&replicaSet=node-rest-shop-shard-0&authSource=admin&retryWrites=true')
+mongoose.connect(
+    'mongodb://vlad:' +
+     process.env.MONGO_ATLAS_PW + 
+     '@node-rest-shop-shard-00-00-amcix.mongodb.net:27017,node-rest-shop-shard-00-01-amcix.mongodb.net:27017,node-rest-shop-shard-00-02-amcix.mongodb.net:27017/test?ssl=true&replicaSet=node-rest-shop-shard-0&authSource=admin&retryWrites=true',
+     {
+        useNewUrlParser: true
+     });
+
+mongoose.Promise = global.Promise;
 
 //Arata in terminal ce requesturi se fac
 app.use(morgan('dev'));
+// Face public folderul uploads
+app.use('/uploads',express.static('uploads'));
 // Extrage json data si o face sa fie usor de folosit
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
@@ -33,6 +44,7 @@ app.use((req,res, next) => {
 // Tote requesturile /products se duc in productRoutes
 app.use('/products', productRoutes);
 app.use('/orders', ordersRoutes);
+app.use('/user', userRoutes);
 
 // Daca nu se gaseste o ruta paseaza eroare
 app.use((req, res, next) => {

@@ -1,20 +1,61 @@
 // Seteaza routele pentru produse
-// Get /products,Get /products/:id Post /products, Pach /products/:id, Delete /products/id
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const multer = require('multer'); // To porcess file
+const checkAuth = require('../middleware/check-auth'); //middleware de verificare pass
 
 const Product = require('../models/product');
 
-// In app.js deoarece se foloseste /products la get se pune doar /
-// Routa finala este /products
+// Validare poze produse
+const storage = multer.diskStorage({
+    destination: function(req, res, cb){
+        cb(null, './uploads');
+    }, 
+    filename: function(req, file, cb) {
+        cb(null, file.originalname);
+    }
+});
+
+const fileFilter = (re, file, cb) => {
+    if(file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' ) {
+        // Stocheaza 
+        cb(null, true);
+    } else {
+        cb(null, false);
+    }
+};
+
+const upload = multer({
+    storage: storage, 
+    limits: {
+        fieldSize: 1024 * 1024 *5
+    },
+    fileFilter: fileFilter
+});
+
+
+// GET - /products
 router.get('/', (req, res, next) => {
     Product.find()
+        .select('name price _id productImage')
         .exec()
         .then(docs => {
-            console.log(docs);
+
+            const response = {
+                count: docs.length,
+                products: docs.map(doc => {
+                    return {
+                        name: doc.name,
+                        price: doc.price,
+                        productImage: doc.productImage,
+                        _id: doc._id
+                    }
+                })
+            }
+
             // if(docs.length >= 0) {
-                res.status(200).json(docs);
+                res.status(200).json(response);
             // } else {
             //     res.status(404).json({
             //         message: 'No entry found'
@@ -29,21 +70,26 @@ router.get('/', (req, res, next) => {
         });
 });
 
-router.post('/', (req, res, next) => {
-
+router.post('/', checkAuth, upload.single('productImage'), (req, res, next) => {
+    console.log(req.file);
     const product = new Product({
         _id: new mongoose.Types.ObjectId(),
         name: req.body.name,
-        price: req.body.price
+        price: req.body.price,
+        productImage: req.file.path.normalize()
     });
-
     product
         .save()
         .then(result => {
             console.log(result);
             res.status(201).json({
-                message: 'Heandling Post requests to /products',
-                coreatedProduct: product
+                message: 'Created product succesfully',
+                coreatedProduct: {
+                    name: result.name,
+                    price: result.price,
+                    productImage: result.productImage,
+                    _id: result._id
+                }
             });
         })
         .catch(err => {
@@ -58,13 +104,19 @@ router.post('/', (req, res, next) => {
 router.get('/:productId', (req, res, next) => {
     const id = req.params.productId;
     Product.findById(id)
+        .select('name price _id productImage')
         .exec()
         .then(doc => {
-            console.log(doc);
+        
             // Verific daca exita id adica are formatul potrivit
             // Daca are formatul trimie 200 daca nu are format 404 not found
             if(doc) {
-                res.status(200).json(doc);
+                res.status(200).json({
+                    name: doc.name,
+                    price: doc.price,
+                    productImage: doc.productImage,
+                    _id: doc._id
+                });
             } else {
                 res.status(404).json({ message: 'No valid entry found for provided ID'});
             }
@@ -76,7 +128,7 @@ router.get('/:productId', (req, res, next) => {
         });
 });
 
-router.patch('/:productId', (req, res, next) => {
+router.patch('/:productId', checkAuth, (req, res, next) => {
     const id = req.params.productId;
     const updateOps = {};
     for (const ops of req.body){
@@ -87,7 +139,15 @@ router.patch('/:productId', (req, res, next) => {
         .exec()
         .then(result => {
             console.log(result);
-            res.status(200).json(result)
+            res.status(200).json({
+                message: 'Updated product succesfully',
+                coreatedProduct: {
+                    name: result.name,
+                    price: result.price,
+                    productImage: result.productImage,
+                    _id: result._id
+                }
+            })
         })
         .catch(err => {
             console.log(err);
@@ -97,12 +157,14 @@ router.patch('/:productId', (req, res, next) => {
         });
 });
 
-router.delete('/:productId', (req, res, next) => {
+router.delete('/:productId', checkAuth, (req, res, next) => {
     const id = req.params.productId;
     Product.remove({ _id: id })
         .exec()
         .then(result => {
-            res.status(200).json(result)
+            res.status(200).json({ 
+                message: 'Product Deleted'
+            });
         })
         .catch(err => {
             console.log(err);
